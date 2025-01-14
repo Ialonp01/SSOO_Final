@@ -106,8 +106,62 @@ void *metCliente(void *arg){
             }
         }
     }
+    writeLogMessage(id,"Estoy esperando");
+    while(1){
+        pthread_mutex_lock(&semaforoClientes);
+        int pos=getPosicionCliente(id);
+        if(clientes[pos].estado==2){
+            pthread_mutex_unlock(&semaforoClientes);
+            break;
+        }
+        pthread_mutex_unlock(&semaforoClientes);
+        sleep(2);
+    }
+    writeLogMessage(id,"Han terminado de atenderme");
+    pthread_mutex_lock(&semaforoClientes);
+    eliminar(id);
+    pthread_mutex_unlock(&semaforoClientes);
+}
+
+void *metCajero(void *args){
+    //generar identificador
+    char *id=(char*) arg;
+    //escribir en el log y empezamos a atender
+    writeLogMessage(id,"Empezamos a atender")
+    //iniciar contador de atendidas
+    int contadorClientes=0;
+    //buscar cliente para atender
+    char *idCliente=NULL;
+    while(1){
+        pthread_mutex_lock(&semaforoClientes);
+        for(int i=0;i<sizeOf(clientes);i++){
+            *idCliente=*(cliente+i)->nombre;
+            if(*(clientes+i)->estado==0){
+                *(clientes+i)->estado=1;
+                pthread_mutex_unlock(&semaforoClientes);
+                break;
+            }
+        }
+        pthread_mutex_unlock(&semaforoClientes);
+        if(idCliente==NULL){
+            //Espero a buscar hueco
+        }
+        else{
+            
+        }
+    }
 }
 
 int getPosicionCliente(char *nombre){
 
+}
+
+void eliminar(char* nombre){   
+    int pos=getPosicionCliente(nombre);
+    int i=0;
+    for(i=pos;i<sizeof(clientes)-1;i++){
+        clientes[i]=clientes[i+1];
+    }
+    clientes[i].nombre=NULL;
+    clientes[i].estado=-1;
 }
