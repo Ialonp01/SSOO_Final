@@ -8,8 +8,10 @@
 
 pthread_mutex_t semaforoLog;
 pthread_mutex_t semaforoClientes;
+pthread_mutex_t mutexReponedor;
 pthread_t condReponedor;
 pthread_t cond;
+pthread_t condCajero;
 int contadorClientes;
 struct Clientes{
     char nombre[12];
@@ -28,8 +30,10 @@ int main(int argc, char *argv[]){
     //Inicializo vector
     clientes=(struct *Cliente)malloc(numCajeros*sizeOf(struct Cliente));
     pthread_mutex_init(&semaforoClientes, NULL);
+    pthread_mutex_init(&mutexReponedor, NULL);
     pthread_cond_init(&condReponedor,NULL);
     pthread_cond_init(&cond,NULL);
+    pthread_cond_init(&condCajero,NULL)
     pthread_mutex_init(&semaforoLog, NULL);
     for(int i=0;i<numCajeros;i++){
         pthread_t cajero;
@@ -81,7 +85,9 @@ void nuevoCliente(int signal){
 
 }
 
-int calculaAleatorio(){
+
+ void *calculaAleatorio(int minimo, int maximo){
+    return rand()%(maximo-minimo+1)+minimo;
 
 }
 
@@ -127,7 +133,7 @@ void *metCajero(void *args){
     //generar identificador
     char *id=(char*) arg;
     //escribir en el log y empezamos a atender
-    writeLogMessage(id,"Empezamos a atender")
+    writeLogMessage(id,"Empezamos a atender");
     //iniciar contador de atendidas
     int contadorClientes=0;
     //buscar cliente para atender
@@ -143,17 +149,69 @@ void *metCajero(void *args){
             }
         }
         pthread_mutex_unlock(&semaforoClientes);
-        if(idCliente==NULL){
+        if(idCliente!=NULL){
             //Espero a buscar hueco
+            int atencion=calculaAleatorio(1,5);
+            char msg[100];
+            sprintf("Comienza la atención de %s ", idCliente);
+            writeLogMessage(id, msg);
+            sleep(atencion);
+            int probab=calculaAleatorio(1,100);
+            if(probab>95){
+                char noAtencion[100];
+                sprintf(noAtencion,"%s se va sin comprobar");
+                writeLogMessage(id, noAtencion);
+            }else if(probab>70){
+                pthread_cond_signal(&condReponedor);
+                char noAtencion[100];
+                sprintf(noAtencion,"%s tiene que esperar al reponedor");
+                writeLogMessage(id,noAtencion);
+                //Se espera el aviso del reponedor
+                pthread_mutex_lock(&mutexReponedor);
+                pthread_cond_wait(&cond,&mutexReponedor);
+            }
+            int precio=calculaAleatorio(1,100);
+            if(probab<95){
+                char fin[100];
+                sprintf(fin,"El cliente %s finaliza su atención con un total de %d euros", id);
+                writeLogMessage(id,fin);
+            }
+            pthread_mutex_lock(&semaforoClientes);
+            for(int i=0;i<sizeof(clientes);i++){
+                if(strcmp(clientes[i].nombre, idCliente)==0){
+                    clientes[i].estado=2;
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&semaforoClientes);
+            contadorClientes++;
+            if(contadorClientes%10==0){
+                writeLogMessage(id,"Voy a descansar");
+                sleep(20);
+            }
         }
-        else{
-            
-        }
+    }
+}
+void *reponedor(void *args){
+    while(1){
+        writeLogMessage("Reponedor", "Comienza el método");
+        pthread_mutex_lock(&mutexReponedor);
+        pthread_mutex_wait(&condReponedor,&mutexReponedor);
+        writeLogMessage("Reponedor", "Estoy consultando");
+        int siesta=calculaAleatorio(1,5);
+        sleep(siesta);
+        pthread_cond_signal(&condCajero);
     }
 }
 
 int getPosicionCliente(char *nombre){
-
+    for(int i = 0; i<contClientes; i++){
+        if(strcmp(nombre, cliente[i].nombre)==0){
+            return i;
+        }
+    }
+    printf("No existe el cliente.");
+    return -1;
 }
 
 void eliminar(char* nombre){   
